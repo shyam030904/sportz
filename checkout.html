@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Checkout - Mumbai Sports Store</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        .checkout-container {
+            max-width: 800px;
+            margin: 100px auto;
+            padding: 2rem;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+        .checkout-form {
+            display: grid;
+            gap: 1rem;
+        }
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+        .form-group label {
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            color: #333;
+        }
+        .form-group input, .form-group textarea {
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 1rem;
+        }
+        .form-group input:focus, .form-group textarea:focus {
+            outline: none;
+            border-color: #e74c3c;
+        }
+        .order-summary {
+            background: #f8f9fa;
+            padding: 1.5rem;
+            border-radius: 10px;
+            margin-bottom: 2rem;
+        }
+        .place-order-btn {
+            background: #27ae60;
+            color: white;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 1rem;
+        }
+        .place-order-btn:hover {
+            background: #219a52;
+        }
+        .back-btn {
+            background: #6c757d;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-bottom: 2rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="checkout-container">
+        <button class="back-btn" onclick="window.history.back()">← Back to Store</button>
+        
+        <h1>Checkout</h1>
+        
+        <div class="order-summary" id="orderSummary">
+            <!-- Order summary will be loaded here -->
+        </div>
+        
+        <form class="checkout-form" id="checkoutForm">
+            <div class="form-group">
+                <label for="name">Full Name *</label>
+                <input type="text" id="name" name="name" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="mobile">Mobile Number *</label>
+                <input type="tel" id="mobile" name="mobile" pattern="[0-9]{10}" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="email">Email Address *</label>
+                <input type="email" id="email" name="email" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="address">Complete Address *</label>
+                <textarea id="address" name="address" rows="3" required></textarea>
+            </div>
+            
+            <div class="form-group">
+                <label for="pincode">Pincode *</label>
+                <input type="text" id="pincode" name="pincode" pattern="[0-9]{6}" required>
+            </div>
+            
+            <button type="submit" class="place-order-btn">Place Order</button>
+        </form>
+    </div>
+
+    <script>
+        // Load cart data
+        const cart = JSON.parse(localStorage.getItem('cart') || '[]');
+        
+        // Display order summary
+        function displayOrderSummary() {
+            const orderSummary = document.getElementById('orderSummary');
+            
+            if (cart.length === 0) {
+                orderSummary.innerHTML = '<p>Your cart is empty. <a href="index.html">Continue Shopping</a></p>';
+                return;
+            }
+            
+            let total = 0;
+            let summaryHTML = '<h3>Order Summary</h3>';
+            
+            cart.forEach(item => {
+                const itemTotal = item.price * item.quantity;
+                total += itemTotal;
+                summaryHTML += `
+                    <div style="display: flex; justify-content: space-between; margin: 10px 0;">
+                        <span>${item.name} x ${item.quantity}</span>
+                        <span>₹${itemTotal}</span>
+                    </div>
+                `;
+            });
+            
+            summaryHTML += `
+                <hr>
+                <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 1.2rem;">
+                    <span>Total</span>
+                    <span>₹${total}</span>
+                </div>
+            `;
+            
+            orderSummary.innerHTML = summaryHTML;
+        }
+        
+        // Handle form submission
+        document.getElementById('checkoutForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const formData = new FormData(e.target);
+            const customerInfo = {
+                name: formData.get('name'),
+                mobile: formData.get('mobile'),
+                email: formData.get('email'),
+                address: formData.get('address'),
+                pincode: formData.get('pincode')
+            };
+            
+            const totalAmount = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+            
+            const orderData = {
+                customerInfo,
+                items: cart,
+                totalAmount
+            };
+            
+            try {
+                const response = await fetch('/api/orders/create', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(orderData)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    localStorage.removeItem('cart');
+                    alert(`Order placed successfully! Order ID: ${result.orderId}`);
+                    window.location.href = 'index.html';
+                } else {
+                    alert('Error placing order: ' + result.message);
+                }
+            } catch (error) {
+                alert('Error placing order. Please try again.');
+                console.error(error);
+            }
+        });
+        
+        // Initialize
+        displayOrderSummary();
+    </script>
+</body>
+</html>

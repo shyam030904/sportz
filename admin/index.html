@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel - Mumbai Sports Store</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f8f9fa;
+        }
+        .header {
+            background: #e74c3c;
+            color: white;
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 0 2rem;
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 2rem;
+            margin-bottom: 3rem;
+        }
+        .stat-card {
+            background: white;
+            padding: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        .stat-card i {
+            font-size: 3rem;
+            color: #e74c3c;
+            margin-bottom: 1rem;
+        }
+        .stat-card h3 {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
+        .orders-section {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        .orders-header {
+            background: #e74c3c;
+            color: white;
+            padding: 1.5rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .orders-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .orders-table th,
+        .orders-table td {
+            padding: 1rem;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+        .orders-table th {
+            background: #f8f9fa;
+            font-weight: 600;
+        }
+        .status-badge {
+            padding: 0.3rem 0.8rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+        .status-pending { background: #fff3cd; color: #856404; }
+        .status-confirmed { background: #d4edda; color: #155724; }
+        .status-shipped { background: #cce5ff; color: #004085; }
+        .status-delivered { background: #d1ecf1; color: #0c5460; }
+        .status-cancelled { background: #f8d7da; color: #721c24; }
+        .status-select {
+            padding: 0.5rem;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .order-details {
+            cursor: pointer;
+        }
+        .order-details:hover {
+            background: #f8f9fa;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+        }
+        .modal-content {
+            background-color: white;
+            margin: 5% auto;
+            padding: 2rem;
+            border-radius: 10px;
+            width: 90%;
+            max-width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        .close {
+            float: right;
+            font-size: 2rem;
+            cursor: pointer;
+            color: #999;
+        }
+        .close:hover {
+            color: #333;
+        }
+        @media (max-width: 768px) {
+            .orders-table {
+                font-size: 0.8rem;
+            }
+            .orders-table th,
+            .orders-table td {
+                padding: 0.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1><i class="fas fa-tachometer-alt"></i> Mumbai Sports Store - Admin Panel</h1>
+        <button onclick="refreshData()" style="background: white; color: #e74c3c; border: none; padding: 0.5rem 1rem; border-radius: 5px; cursor: pointer;">
+            <i class="fas fa-sync-alt"></i> Refresh
+        </button>
+    </div>
+
+    <div class="container">
+        <div class="stats" id="statsContainer">
+            <!-- Stats will be loaded here -->
+        </div>
+
+        <div class="orders-section">
+            <div class="orders-header">
+                <h2><i class="fas fa-shopping-bag"></i> All Orders</h2>
+                <span id="orderCount">Loading...</span>
+            </div>
+            <div style="overflow-x: auto;">
+                <table class="orders-table">
+                    <thead>
+                        <tr>
+                            <th>Order ID</th>
+                            <th>Customer</th>
+                            <th>Mobile</th>
+                            <th>Total</th>
+                            <th>Status</th>
+                            <th>Date</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="ordersTableBody">
+                        <!-- Orders will be loaded here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Order Details Modal -->
+    <div id="orderModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <div id="orderDetails">
+                <!-- Order details will be loaded here -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let orders = [];
+
+        // Load statistics
+        async function loadStats() {
+            try {
+                const response = await fetch('/api/admin/stats');
+                const data = await response.json();
+                
+                if (data.success) {
+                    const statsContainer = document.getElementById('statsContainer');
+                    statsContainer.innerHTML = `
+                        <div class="stat-card">
+                            <i class="fas fa-shopping-cart"></i>
+                            <h3>${data.stats.totalOrders}</h3>
+                            <p>Total Orders</p>
+                        </div>
+                        <div class="stat-card">
+                            <i class="fas fa-clock"></i>
+                            <h3>${data.stats.pendingOrders}</h3>
+                            <p>Pending Orders</p>
+                        </div>
+                        <div class="stat-card">
+                            <i class="fas fa-rupee-sign"></i>
+                            <h3>₹${data.stats.totalRevenue}</h3>
+                            <p>Total Revenue</p>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error('Error loading stats:', error);
+            }
+        }
+
+        // Load orders
+        async function loadOrders() {
+            try {
+                const response = await fetch('/api/admin/orders');
+                const data = await response.json();
+                
+                if (data.success) {
+                    orders = data.orders;
+                    displayOrders(orders);
+                    document.getElementById('orderCount').textContent = `${orders.length} orders`;
+                }
+            } catch (error) {
+                console.error('Error loading orders:', error);
+            }
+        }
+
+        // Display orders in table
+        function displayOrders(ordersToShow) {
+            const tbody = document.getElementById('ordersTableBody');
+            
+            if (ordersToShow.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align: center;">No orders found</td></tr>';
+                return;
+            }
+            
+            tbody.innerHTML = ordersToShow.map(order => `
+                <tr class="order-details" onclick="showOrderDetails('${order._id}')">
+                    <td><strong>${order.orderId}</strong></td>
+                    <td>${order.customerInfo.name}</td>
+                    <td>${order.customerInfo.mobile}</td>
+                    <td>₹${order.totalAmount}</td>
+                    <td>
+                        <select class="status-select" onchange="updateOrderStatus('${order._id}', this.value)" onclick="event.stopPropagation()">
+                            <option value="pending" ${order.status === 'pending' ? 'selected' : ''}>Pending</option>
+                            <option value="confirmed" ${order.status === 'confirmed' ? 'selected' : ''}>Confirmed</option>
+                            <option value="shipped" ${order.status === 'shipped' ? 'selected' : ''}>Shipped</option>
+                            <option value="delivered" ${order.status === 'delivered' ? 'selected' : ''}>Delivered</option>
+                            <option value="cancelled" ${order.status === 'cancelled' ? 'selected' : ''}>Cancelled</option>
+                        </select>
+                    </td>
+                    <td>${new Date(order.orderDate).toLocaleDateString()}</td>
+                    <td>
+                        <button onclick="showOrderDetails('${order._id}'); event.stopPropagation();" style="background: #007bff; color: white; border: none; padding: 0.3rem 0.8rem; border-radius: 3px; cursor: pointer;">
+                            View
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        // Update order status
+        async function updateOrderStatus(orderId, newStatus) {
+            try {
+                const response = await fetch(`/api/admin/orders/${orderId}/status`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ status: newStatus })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Update local orders array
+                    const orderIndex = orders.findIndex(order => order._id === orderId);
+                    if (orderIndex !== -1) {
+                        orders[orderIndex].status = newStatus;
+                    }
+                    
+                    alert('Order status updated successfully!');
+                    loadStats(); // Refresh stats
+                } else {
+                    alert('Error updating order status');
+                }
+            } catch (error) {
+                console.error('Error updating order status:', error);
+                alert('Error updating order status');
+            }
+        }
+
+        // Show order details
+        function showOrderDetails(orderId) {
+            const order = orders.find(o => o._id === orderId);
+            if (!order) return;
+            
+            const orderDetails = document.getElementById('orderDetails');
+            orderDetails.innerHTML = `
+                <h2>Order Details - ${order.orderId}</h2>
+                
+                <h3>Customer Information</h3>
+                <p><strong>Name:</strong> ${order.customerInfo.name}</p>
+                <p><strong>Mobile:</strong> ${order.customerInfo.mobile}</p>
+                <p><strong>Email:</strong> ${order.customerInfo.email}</p>
+                <p><strong>Address:</strong> ${order.customerInfo.address}</p>
+                <p><strong>Pincode:</strong> ${order.customerInfo.pincode}</p>
+                
+                <h3>Order Items</h3>
+                <table style="width: 100%; border-collapse: collapse; margin: 1rem 0;">
+                    <thead>
+                        <tr style="background: #f8f9fa;">
+                            <th style="padding: 0.5rem; border: 1px solid #ddd;">Item</th>
+                            <th style="padding: 0.5rem; border: 1px solid #ddd;">Price</th>
+                            <th style="padding: 0.5rem; border: 1px solid #ddd;">Qty</th>
+                            <th style="padding: 0.5rem; border: 1px solid #ddd;">Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${order.items.map(item => `
+                            <tr>
+                                <td style="padding: 0.5rem; border: 1px solid #ddd;">${item.image} ${item.name}</td>
+                                <td style="padding: 0.5rem; border: 1px solid #ddd;">₹${item.price}</td>
+                                <td style="padding: 0.5rem; border: 1px solid #ddd;">${item.quantity}</td>
+                                <td style="padding: 0.5rem; border: 1px solid #ddd;">₹${item.price * item.quantity}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+                
+                <h3>Order Summary</h3>
+                <p><strong>Total Amount:</strong> ₹${order.totalAmount}</p>
+                <p><strong>Status:</strong> <span class="status-badge status-${order.status}">${order.status.toUpperCase()}</span></p>
+                <p><strong>Order Date:</strong> ${new Date(order.orderDate).toLocaleString()}</p>
+            `;
+            
+            document.getElementById('orderModal').style.display = 'block';
+        }
+
+        // Refresh data
+        function refreshData() {
+            loadStats();
+            loadOrders();
+        }
+
+        // Close modal
+        document.querySelector('.close').addEventListener('click', () => {
+            document.getElementById('orderModal').style.display = 'none';
+        });
+
+        // Close modal when clicking outside
+        window.addEventListener('click', (e) => {
+            if (e.target.classList.contains('modal')) {
+                e.target.style.display = 'none';
+            }
+        });
+
+        // Initialize
+        loadStats();
+        loadOrders();
+    </script>
+</body>
+</html>
